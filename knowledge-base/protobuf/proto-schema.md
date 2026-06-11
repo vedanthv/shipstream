@@ -185,17 +185,312 @@ When `created_at` is encoded, it's treated as wire type 2 (length-delimited): a 
 | Reuse a deleted field number | ❌ | Old data misinterpreted |
 | Change `int32` → `sint32` | ❌ | Same wire type but different encoding (zigzag) — silent corruption |
 
-When removing a field, mark the number as reserved to prevent accidental reuse:
+---
+
+## Schema evolution in practice
+
+Each scenario below shows exactly what happens to the bytes and to your running system.
+
+---
+
+### ✅ Safe: Adding a new field
+
+You need to capture `shipping_address`. Add it at the end with a new field number.
 
 ```protobuf
+// BEFORE
 message Order {
-  reserved 3;                    // number 3 was "item", now removed
-  reserved "item";               // prevent future field named "item"
   string id          = 1;
   string customer_id = 2;
+  string item        = 3;
   double amount      = 4;
   OrderStatus status = 5;
 }
+
+// AFTER — add field 7 (skip 6 which is created_at)
+message Order {
+  string id               = 1;
+  string customer_id      = 2;
+  string item             = 3;
+  double amount           = 4;
+  OrderStatus status      = 5;
+  google.protobuf.Timestamp created_at = 6;
+  string shipping_address = 7;   // ← new
+}
+```
+
+**What happens on the wire:**
+
+```
+Old producer bytes (no field 7):
+  0a 03 61 62 63   ← field 1: id
+  12 04 63 2d 34 32  ← field 2: customer_id
+  ...
+  28 01            ← field 5: status
+  (field 7 absent — not written)
+
+New producer bytes (with field 7):
+  0a 03 61 62 63   ← field 1: id
+  ...
+  28 01            ← field 5: status
+  3a 0f 31 32 20 4d 61 69 6e 20 53 74 2e  ← field 7: "12 Main St"
+  (tag 0x3a = field 7, wire type 2)
+```
+
+**Compatibility:**
+
+```
+Old consumer + new producer bytes
+  → consumer reads tag 0x3a (field 7, unknown)
+  → wire type is 2 (length-delimited) → reads length, skips N bytes
+  → continues to next tag — no error, field 7 silently ignored ✅
+
+New consumer + old producer bytes
+  → field 7 is simply absent
+  → order.shipping_address == ""  (zero value for string) ✅
+```
+
+**Deploy order:** new producer first or new consumer first — both are safe. No coordination needed.
+
+---
+
+### ✅ Safe: Renaming a field
+
+You want to rename `customer_id` to `buyer_id` to match new domain language.
+
+```protobuf
+// BEFORE
+string customer_id = 2;
+
+// AFTER
+string buyer_id = 2;   // same number, different name
+```
+
+**What happens on the wire:** Absolutely nothing changes. Field names do not exist on the wire. The bytes for field 2 are identical before and after. The only change is in the generated Python class:
+
+```python
+# Before
+order.customer_id  # works
+
+# After regenerating _pb2.py
+order.buyer_id     # works
+order.customer_id  # AttributeError — name is gone in generated code
+```
+
+**Risk:** Any Python code still using `order.customer_id` breaks at runtime — but only in your codebase, not in the wire format. Old Kafka messages are unaffected.
+
+---
+
+### ✅ Safe: Adding an enum value
+
+You need to track refunded orders.
+
+```protobuf
+// BEFORE
+enum OrderStatus {
+  ORDER_STATUS_UNSPECIFIED = 0;
+  ORDER_STATUS_CREATED     = 1;
+  ORDER_STATUS_PAID        = 2;
+  ORDER_STATUS_FULFILLED   = 3;
+  ORDER_STATUS_CANCELLED   = 4;
+}
+
+// AFTER
+enum OrderStatus {
+  ORDER_STATUS_UNSPECIFIED = 0;
+  ORDER_STATUS_CREATED     = 1;
+  ORDER_STATUS_PAID        = 2;
+  ORDER_STATUS_FULFILLED   = 3;
+  ORDER_STATUS_CANCELLED   = 4;
+  ORDER_STATUS_REFUNDED    = 5;   // ← new
+}
+```
+
+**What happens on the wire:** `ORDER_STATUS_REFUNDED` is just the varint `0x05`. Old consumers that receive value `5` will see an unknown integer. In Python they'll store the raw integer `5` and your `STATUS_NAMES.get(order.status, "UNKNOWN")` will return `"UNKNOWN"` — harmless.
+
+**Risk:** If old consumers have `if order.status == 4: do_cancel()` style logic, `5` simply falls through — correct behavior. But if they have `else: raise ValueError("unexpected status")`, they'll blow up. Defensive coding matters.
+
+---
+
+### ❌ Breaking: Changing a field number
+
+Someone "cleans up" the schema and renumbers `item` from `3` to `8`.
+
+```protobuf
+// BEFORE
+string item = 3;
+
+// AFTER (BREAKING)
+string item = 8;   // ← changed field number
+```
+
+**What happens on the wire:**
+
+```
+Old producer encodes item as field 3:
+  1a 08 4b 65 79 62 6f 61 72 64
+  ^^                              ← tag 0x1a = field 3, wire type 2
+  
+New consumer expects item at field 8, tag 0x42:
+  → reads tag 0x1a → field 3, unknown
+  → skips 8 bytes ("Keyboard")
+  → order.item == ""   ← silently empty, no error
+  
+Old consumer + new producer bytes:
+  → reads tag 0x42 → field 8, unknown
+  → skips it
+  → order.item == ""   ← also silently empty
+```
+
+**What you actually see:** No crash. No error. Just `order.item` being empty string in both consumers. This silently corrupts data in production and is very hard to notice until someone checks the Redpanda Console and wonders why item is blank in every order.
+
+---
+
+### ❌ Breaking: Changing a field type across wire types
+
+You decide `item` should be an integer SKU code instead of a string name.
+
+```protobuf
+// BEFORE
+string item = 3;   // wire type 2 (length-delimited)
+
+// AFTER (BREAKING)
+int32 item = 3;    // wire type 0 (varint)
+```
+
+**What happens on the wire:**
+
+```
+Old producer bytes for field 3 (string "Keyboard", wire type 2):
+  1a 08 4b 65 79 62 6f 61 72 64
+  ^^
+  tag 0x1a = field 3, wire type 2
+
+New consumer expects field 3 to be wire type 0 (varint):
+  → reads tag 0x1a → field 3, wire type 2
+  → expected wire type 0
+  → DecodeError: Tag had wrong wire type
+
+Python output:
+  google.protobuf.message.DecodeError:
+    Error parsing message: Tag had wrong wire type: 2 not in (0,)
+```
+
+This is the **best-case** breaking change — at least it fails loudly with an exception. Your consumer's `except Exception as e` block catches it and logs it. Every single message from the old producer will fail to deserialize.
+
+---
+
+### ❌ Breaking: int32 → sint32 (silent corruption)
+
+You learn that `sint32` is more efficient for negative numbers and switch `status` from `int32` to `sint32`.
+
+```protobuf
+// BEFORE
+int32 discount_pct = 7;   // stores values like -10, -25, 0, 5
+
+// AFTER (BREAKING)
+sint32 discount_pct = 7;  // same wire type 0, but zigzag encoding
+```
+
+Both `int32` and `sint32` use **wire type 0 (varint)** — so the decoder never raises an error. But they encode values differently:
+
+```
+Encoding value 100:
+  int32:  varint(100)         = 0x64        (1 byte)
+  sint32: varint(zigzag(100)) = varint(200) = 0xc8 0x01 (2 bytes)
+
+Decoding 0x64 as the wrong type:
+  Old producer sent int32(100) → 0x64
+  New consumer reads 0x64 as sint32 → zigzag_decode(100) = 50
+  → 100 became 50. No error. ✅ looks fine. ❌ completely wrong.
+
+Encoding value -1:
+  int32:  varint(-1)         = ff ff ff ff ff ff ff ff ff 01 (10 bytes)
+  sint32: varint(zigzag(-1)) = varint(1) = 0x01              (1 byte)
+
+Decoding 0x01 (sint32(-1)) as int32:
+  → int32 value = 1
+  → -1 became 1. No error. Silent sign flip.
+```
+
+**Why this is the most dangerous kind of break:** Same wire type, so no `DecodeError`. Values are wrong by a consistent formula, so the bug may not surface immediately. Your discount calculations silently return half the intended value. Users get charged the wrong amount.
+
+---
+
+### ❌ Breaking: Reusing a deleted field number
+
+`item` (field 3) is removed. Six months later someone adds `warehouse_code` and, not knowing about the reserved field, reuses number 3.
+
+```protobuf
+// Original
+string item = 3;
+
+// After removal (should have been reserved!)
+// field 3 gone, nothing reserved
+
+// Six months later
+string warehouse_code = 3;   // ← reused number 3
+```
+
+**What happens to old messages still in Kafka:**
+
+Kafka retains messages for 7 days by default. Any consumer that resets its offset and replays history, or any new service that reads from the beginning, will encounter old messages where field 3 contains an item name like `"Keyboard"`.
+
+```
+Old message bytes for field 3 = "Keyboard":
+  1a 08 4b 65 79 62 6f 61 72 64
+
+New consumer expects field 3 = warehouse_code:
+  → reads field 3 as string (same wire type 2 — no error)
+  → warehouse_code = "Keyboard"
+  → order routed to warehouse "Keyboard" which doesn't exist
+```
+
+No error. A string is a string. But `warehouse_code = "Keyboard"` is garbage data that will cause downstream failures in your warehouse routing system.
+
+**The fix — always reserve deleted field numbers:**
+
+```protobuf
+message Order {
+  reserved 3;        // was "item" — do not reuse
+  reserved "item";   // prevent a future field named "item" from being added
+  
+  string id               = 1;
+  string customer_id      = 2;
+  double amount           = 4;
+  OrderStatus status      = 5;
+  google.protobuf.Timestamp created_at = 6;
+  string warehouse_code   = 8;   // ← use a fresh number
+}
+```
+
+`protoc` will now refuse to compile if anyone tries to add `= 3` or name a field `item`:
+
+```
+error: Field number 3 has been reserved in "Order".
+```
+
+---
+
+### The deployment order matters for safe changes too
+
+Even for safe changes, deploy order affects what users experience during the rollout window:
+
+```
+Scenario: Adding field 7 (shipping_address)
+
+Option A — Deploy new consumer first, then new producer
+  Window: consumers expect field 7, producers don't send it yet
+  → order.shipping_address == "" during rollout
+  → safe: empty string is the zero value, consumers handle it
+
+Option B — Deploy new producer first, then new consumer  
+  Window: producers send field 7, old consumers don't know it
+  → old consumers skip field 7 silently
+  → safe: unknown fields are ignored
+
+Both options are safe for additive changes.
+For breaking changes, no deployment order helps — you need a v2 package.
 ```
 
 ---
