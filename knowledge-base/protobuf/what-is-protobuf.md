@@ -6,9 +6,9 @@
 
 ## The serialization problem
 
-Services exchange data over a network. Networks transmit bytes. Your Python objects are not bytes. You need a way to convert between them — this is **serialization** (object → bytes) and **deserialization** (bytes → object).
+Every time two services exchange data, someone has to answer: *how do bytes become a structured object and back again?*
 
-The simplest approach is JSON. But JSON has problems at scale:
+The naive answer is JSON:
 
 ```json
 {
@@ -16,81 +16,114 @@ The simplest approach is JSON. But JSON has problems at scale:
   "customer_id": "customer-42",
   "item": "Mechanical Keyboard",
   "amount": 149.99,
-  "status": "ORDER_STATUS_CREATED",
-  "created_at": "2024-01-15T10:30:00Z"
+  "status": "ORDER_STATUS_CREATED"
 }
 ```
 
-Every message carries the field names. `"customer_id"` is 13 characters every single time. With millions of messages per minute, that's hundreds of megabytes of field names — pure overhead.
+This works fine until it doesn't. JSON carries the field **names** in every single message. `"customer_id"` is 13 bytes of overhead, repeated millions of times per minute. At Uber's scale (1M+ GPS pings/min), that's gigabytes of field names crossing the network every hour — pure waste.
 
 ---
 
-## What Protobuf does differently
+## What Protobuf does instead
 
-Protocol Buffers (Protobuf) replaces field names with **numbers**. Instead of sending `"customer_id": "c-42"`, it sends `field 2: "c-42"`. The name never travels on the wire.
+Protocol Buffers (Protobuf) is a **binary serialization format** built on one insight: both sides already know the schema. So instead of repeating field names, just send a number.
 
 ```
-JSON (~90 bytes):
-{"id":"abc","customer_id":"c-42","item":"Keyboard","amount":149.99,...}
+JSON message (≈ 93 bytes)
+─────────────────────────────────────────────────────────────────
+{ "id": "abc", "customer_id": "c-42", "item": "Keyboard", 
+  "amount": 149.99, "status": "ORDER_STATUS_CREATED" }
 
-Protobuf (~25 bytes):
-[field 1: "abc"][field 2: "c-42"][field 3: "Keyboard"][field 4: 149.99]...
-as binary: 0x0a 03 61 62 63 12 04 63 2d 34 32 ...
+Protobuf message (32 bytes — same data)
+─────────────────────────────────────────────────────────────────
+0a 03 61 62 63                   ← field 1 (id): "abc"
+12 04 63 2d 34 32               ← field 2 (customer_id): "c-42"
+1a 08 4b 65 79 62 6f 61 72 64  ← field 3 (item): "Keyboard"
+21 48 e1 7a 14 ae bf 62 40     ← field 4 (amount): 149.99
+28 01                           ← field 5 (status): 1 (CREATED)
 ```
 
-Both sides know the schema. The schema says field 2 is `customer_id`. So the receiver reads "field 2" in the binary and knows it's `customer_id` without the name ever being sent.
+No field names. No quotes. No braces. Just field numbers and values. Both producer and consumer have the schema — they know that field `2` is `customer_id`.
 
 ---
 
-## JSON vs Protobuf
+## Side-by-side encoding comparison
 
-| | JSON | Protobuf |
-|--|------|----------|
+```
+         JSON                          Protobuf
+┌────────────────────────┐    ┌──────────────────────┐
+│ "customer_id": "c-42" │    │  0x12  0x04  "c-42" │
+│  ─────────────────────│    │  tag   len   value   │
+│  13 bytes for the key  │    │  1 byte for the key  │
+│   1 byte colon         │    │  1 byte for length   │
+│   7 bytes for value    │    │  4 bytes for value   │
+│   2 bytes for quotes   │    └──────────────────────┘
+│   1 byte comma         │         6 bytes total
+│  ─────────────────────│
+│   24 bytes total       │
+└────────────────────────┘
+```
+
+For this single field alone: **4× smaller** in Protobuf.
+
+---
+
+## JSON vs Protobuf at a glance
+
+| Property | JSON | Protobuf |
+|----------|------|----------|
 | Format | Human-readable text | Binary bytes |
-| Size | ~90 bytes for an Order | ~25 bytes for the same Order |
-| Schema | Optional — any field can appear | Required — both sides must agree |
-| Speed | Slower parse (text parsing) | Faster parse (binary, fixed positions) |
-| Versioning | Manual — no built-in compatibility | Field numbers give backwards compatibility |
-| Debugging | Easy — readable in any text editor | Hard — unreadable without the schema |
+| Field identification | String names (`"customer_id"`) | Integer numbers (`2`) |
+| Size | ~93 bytes (Order example) | ~32 bytes (same data) |
+| Parse speed | Text parsing — slow | Binary parsing — fast |
+| Schema | Optional, not enforced | Required, strictly enforced |
+| Type safety | Loose — `"149.99"` and `149.99` look different but could be either | Strict — `double` is always 8 bytes of IEEE 754 |
+| Human readable | Yes | No — needs schema to decode |
+| Backwards compatible | Manual | Built-in via field numbers |
 
-For Kafka at high throughput, the size difference matters enormously. 3x smaller messages = 3x more throughput on the same hardware, 3x less storage, 3x less network bandwidth.
+---
+
+## The field number is the contract
+
+This is the most important concept in Protobuf:
+
+```protobuf
+message Order {
+  string id          = 1;   ← number 1 travels on the wire, not "id"
+  string customer_id = 2;   ← number 2 travels on the wire, not "customer_id"
+  string item        = 3;
+  double amount      = 4;
+  OrderStatus status = 5;
+}
+```
+
+The name `customer_id` exists only in your `.proto` file and your generated code. It is compiled away. Rename it to `buyer_id` tomorrow — the wire format is identical, old consumers keep working.
+
+Change the number from `2` to `7` — every consumer that hasn't deployed breaks silently, reading the wrong data from field 7.
+
+**Names are for humans. Numbers are for machines.**
 
 ---
 
 ## Industry adoption
 
-| Company | Why Protobuf over JSON |
-|---------|----------------------|
-| **Google** | Created it. Uses it for virtually all internal RPC |
-| **Uber** | Billions of GPS pings/day — JSON would be prohibitively large |
-| **Netflix** | Enforces schema contracts between 1000+ microservices |
-| **Square** | Payment data must have strict types — no accidental string amounts |
-| **Dropbox** | Storage metadata — compact encoding saves real money at scale |
+| Company | Volume | Why Protobuf |
+|---------|--------|-------------|
+| **Google** | Trillions of internal RPCs/day | Invented it. All internal services use it |
+| **Uber** | ~1M driver location updates/min | JSON would add 200+ GB/day of field-name overhead |
+| **Netflix** | Billions of play events/day | Schema enforcement between 1000+ microservices |
+| **Square** | Millions of payments/day | `double amount` can never accidentally become a string |
+| **Dropbox** | Petabytes of metadata | 3× smaller = real infrastructure cost savings |
+| **LinkedIn** | Created Kafka + Avro/Protobuf | Pioneered the schema-first event streaming pattern |
 
 ---
 
-## The core concept: field numbers
+## What you'll learn in the next chapters
 
-This is the single most important thing to understand about Protobuf:
-
-```protobuf
-message Order {
-  string id          = 1;   // ← "1" is what goes on the wire
-  string customer_id = 2;   // ← "2" is what goes on the wire
-  string item        = 3;
-  double amount      = 4;
-  OrderStatus status = 5;
-  Timestamp created_at = 6;
-}
-```
-
-The number after `=` is the **field number**. It identifies the field on the wire. The name (`customer_id`) is only used in your code — it never leaves the machine.
-
-**This means:**
-- You can rename `customer_id` to `buyer_id` freely — the wire format doesn't change
-- You can add new fields (new numbers) and old consumers will ignore them gracefully
-- You can remove fields — old producers that still send them will be ignored by new consumers
-- You **cannot** change a field number — that would silently corrupt data for any consumer that doesn't re-deploy simultaneously
+- **[Chapter 9: Proto Schema](./proto-schema.md)** — how to write `.proto` files
+- **[Chapter 10: Binary Encoding](./binary-encoding.md)** — exactly how data becomes bytes, byte by byte
+- **[Chapter 11: Compile Workflow](./compile-workflow.md)** — how `protoc` turns `.proto` into Python
+- **[Chapter 12: Python Usage](./python-usage.md)** — using the generated classes in practice
 
 ---
 

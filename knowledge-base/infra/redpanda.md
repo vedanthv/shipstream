@@ -112,4 +112,4 @@ If the Console starts immediately but shows "unable to connect", Redpanda hasn't
 
 ---
 
-> ← [Previous: Python Usage](../protobuf/python-usage.md) | [Index](../README.md) | [Next: Redpanda Console →](./redpanda-console.md)
+> ← [Previous: Python Usage](../protobuf/python-usage.md) (Ch 12) | [Index](../README.md) | [Next: Redpanda Console →](./redpanda-console.md)

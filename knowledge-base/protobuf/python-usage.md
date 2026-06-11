@@ -1,4 +1,4 @@
-# Chapter 11 — Python Usage
+# Chapter 12 — Python Usage
 
 > **You are here:** [Index](../README.md) → [Compile Workflow](./compile-workflow.md) → **Python Usage**
 
@@ -11,13 +11,11 @@ from generated.order.v1.order_pb2 import Order, OrderStatus
 from google.protobuf.timestamp_pb2 import Timestamp
 ```
 
-`Order` and `OrderStatus` come from the generated file. `Timestamp` comes from Google's well-known types package (installed with the `protobuf` pip package).
+`Order` and `OrderStatus` come from the generated file. `Timestamp` is a well-known type bundled with the `protobuf` pip package — no generation needed.
 
 ---
 
 ## Constructing a message
-
-Pass field values as keyword arguments — just like a dataclass:
 
 ```python
 import time, uuid
@@ -35,115 +33,198 @@ order = Order(
 )
 ```
 
-Fields you don't set get their **zero value**: `""` for strings, `0` for numbers, the first enum value for enums (which is why `ORDER_STATUS_UNSPECIFIED = 0` exists).
+Fields not set default to their **zero value** and are omitted from the wire:
+
+| Field type | Zero value | Wire behavior |
+|-----------|-----------|---------------|
+| `string` | `""` | Not written |
+| `double` | `0.0` | Not written |
+| `int32` | `0` | Not written |
+| `bool` | `False` | Not written |
+| `enum` | First value (`= 0`) | Not written |
+| `message` | Not set | Not written |
 
 ---
 
-## Serializing (producer side)
+## Serializing
 
 ```python
 raw_bytes = order.SerializeToString()
-# → b'\n$1e4b6578...' (25 bytes, not human-readable)
-
-producer.produce(
-    topic=TOPIC,
-    key=order.id.encode(),
-    value=raw_bytes,
-)
 ```
 
-`SerializeToString()` returns a `bytes` object. You can check its size:
+Returns a `bytes` object. This is what goes into Kafka.
 
 ```python
+# Size comparison
 import json
-json_size = len(json.dumps({"id": order.id, "item": order.item, ...}).encode())
-proto_size = len(raw_bytes)
-print(f"JSON: {json_size} bytes, Protobuf: {proto_size} bytes")
-# JSON: 93 bytes, Protobuf: 27 bytes
+json_bytes = json.dumps({
+    "id": order.id,
+    "customer_id": order.customer_id,
+    "item": order.item,
+    "amount": order.amount,
+    "status": "ORDER_STATUS_CREATED",
+}).encode()
+
+print(f"JSON:     {len(json_bytes)} bytes")
+print(f"Protobuf: {len(raw_bytes)} bytes")
+print(f"Ratio:    {len(json_bytes)/len(raw_bytes):.1f}x smaller")
+# JSON:     93 bytes
+# Protobuf: 32 bytes
+# Ratio:    2.9x smaller
 ```
 
 ---
 
-## Deserializing (consumer side)
+## Deserializing
 
 ```python
-raw_bytes = msg.value()   # bytes off the Kafka message
+# Consumer side — raw bytes from Kafka
+raw_bytes = msg.value()
 
 order = Order()
 order.ParseFromString(raw_bytes)
 
-# Access fields like normal attributes
+# Access fields as normal attributes
 print(order.id)                          # "abc-123"
 print(order.customer_id)                 # "customer-42"
 print(order.item)                        # "Mechanical Keyboard"
 print(order.amount)                      # 149.99
-print(order.created_at.ToDatetime())     # 2024-01-15 10:30:00
+print(order.status)                      # 1 (integer)
+print(order.created_at.ToDatetime())     # datetime(2024, 1, 15, 10, 30, 0)
 ```
 
-`ParseFromString()` mutates the `order` object in place and returns the number of bytes consumed. If the bytes are malformed or the wrong type, it raises an exception — which is why the consumer wraps it in a try/except.
+`ParseFromString()` mutates the object in place. It returns the number of bytes consumed — useful if you're parsing from a larger buffer.
 
 ---
 
 ## Working with enums
 
 ```python
-# Setting (use the named constant)
-status = OrderStatus.ORDER_STATUS_PAID
+# Constructing with named constant
+order = Order(status=OrderStatus.ORDER_STATUS_PAID)
 
-# The underlying value is an integer
-print(int(status))   # 2
+# The value is an integer under the hood
+print(order.status)          # 2
+print(type(order.status))    # <class 'int'>
 
-# Getting the name from an integer value
+# Get the name from the integer
 STATUS_NAMES = {v: k for k, v in OrderStatus.items()}
-# {0: 'ORDER_STATUS_UNSPECIFIED', 1: 'ORDER_STATUS_CREATED', ...}
+# {0: 'ORDER_STATUS_UNSPECIFIED', 1: 'ORDER_STATUS_CREATED',
+#  2: 'ORDER_STATUS_PAID', 3: 'ORDER_STATUS_FULFILLED', 4: 'ORDER_STATUS_CANCELLED'}
 
-STATUS_NAMES.get(order.status, "UNKNOWN")
-# "ORDER_STATUS_CREATED"
+print(STATUS_NAMES[order.status])        # "ORDER_STATUS_PAID"
+print(STATUS_NAMES.get(order.status, "UNKNOWN"))  # safe version
+
+# Compare
+if order.status == OrderStatus.ORDER_STATUS_PAID:
+    print("Order has been paid")
 ```
 
 ---
 
-## Comparing to JSON round-trip
+## Timestamp operations
 
 ```python
-import json
+from google.protobuf.timestamp_pb2 import Timestamp
+import time
 
-# JSON
-json_bytes = json.dumps({
-    "id": order.id,
-    "customer_id": order.customer_id,
-    "item": order.item,
-    "amount": order.amount,
-}).encode()
-decoded = json.loads(json_bytes)
+# Create from current time
+ts = Timestamp()
+ts.GetCurrentTime()                        # set to now
 
-# Protobuf
-proto_bytes = order.SerializeToString()
-decoded_order = Order()
-decoded_order.ParseFromString(proto_bytes)
+# Create from milliseconds (Kafka-style epoch ms)
+ts = Timestamp()
+ts.FromMilliseconds(int(time.time() * 1000))
 
-# Result: same data, ~3x smaller bytes with Protobuf
+# Create from a Python datetime
+from datetime import datetime, timezone
+dt = datetime(2024, 1, 15, 10, 30, 0, tzinfo=timezone.utc)
+ts = Timestamp()
+ts.FromDatetime(dt)
+
+# Read back
+print(ts.seconds)                         # Unix seconds
+print(ts.nanos)                           # nanosecond component
+print(ts.ToDatetime())                    # datetime object (UTC)
+print(ts.ToMilliseconds())                # epoch milliseconds
 ```
 
 ---
 
-## What to do if ParseFromString fails
+## Introspection — useful debugging methods
+
+```python
+order = Order(id="abc", amount=149.99, status=OrderStatus.ORDER_STATUS_CREATED)
+
+# Which fields are actually set (non-zero)?
+for field_descriptor, value in order.ListFields():
+    print(f"  {field_descriptor.name} = {value}")
+# id = abc
+# amount = 149.99
+# status = 1
+
+# Byte size without serializing
+print(order.ByteSize())      # 17
+
+# Check if a specific field is set
+print(order.HasField("created_at"))   # False (not set)
+
+# Human-readable representation (for debugging)
+print(str(order))
+# id: "abc"
+# amount: 149.99
+# status: ORDER_STATUS_CREATED
+
+# Convert to dict
+from google.protobuf.json_format import MessageToDict, MessageToJson
+
+d = MessageToDict(order)
+# {'id': 'abc', 'amount': 149.99, 'status': 'ORDER_STATUS_CREATED'}
+
+j = MessageToJson(order)
+# '{\n  "id": "abc",\n  "amount": 149.99,\n  "status": "ORDER_STATUS_CREATED"\n}'
+```
+
+`MessageToDict` and `MessageToJson` are useful for logging and debugging — they give you a readable representation without losing the type safety of working with the proto object itself.
+
+---
+
+## Inspecting the raw bytes
+
+```python
+raw = order.SerializeToString()
+
+print(f"Bytes: {len(raw)}")
+print(f"Hex:   {' '.join(f'{b:02x}' for b in raw)}")
+# Hex: 0a 03 61 62 63 21 48 e1 7a 14 ae bf 62 40 28 01
+
+# Manually decode the first tag
+first_byte = raw[0]
+print(f"Tag 0x{first_byte:02x}: field={first_byte >> 3}, wire_type={first_byte & 0x7}")
+# Tag 0x0a: field=1, wire_type=2
+```
+
+See [Chapter 10: Binary Encoding](./binary-encoding.md) for the full byte-by-byte breakdown.
+
+---
+
+## Error handling
 
 ```python
 order = Order()
 try:
-    order.ParseFromString(raw)
+    order.ParseFromString(raw_bytes)
 except Exception as e:
     print(f"[ERROR] Failed to deserialize: {e}")
-    # Possible causes:
-    # - wrong topic (bytes are a different message type)
-    # - producer used JSON instead of Protobuf
-    # - corrupted message
-    # - schema mismatch (field type changed)
+    # Common causes:
+    # - bytes are JSON, not Protobuf
+    # - bytes are a different Protobuf message type
+    # - field type was changed in schema (e.g., string → int)
+    # - bytes are corrupted or truncated
     continue
 ```
 
-Common causes of deserialization failure: consuming from a topic where the producer is sending plain JSON or a different Protobuf message type. Always verify the producer and consumer agree on the schema.
+Protobuf will **not** raise an error if you parse a completely wrong message type — it silently reads whatever field numbers it finds. Field 1 in a `Payment` message might be parsed as field 1 in `Order`. You'll get wrong data with no error. Always ensure producers and consumers agree on the message type for a topic.
 
 ---
 

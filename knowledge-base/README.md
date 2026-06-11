@@ -20,17 +20,18 @@ A self-contained reference for the Phase 1 event-driven order pipeline. Read it 
 ### Part 2 — Protobuf
 | # | Chapter | What you'll learn |
 |---|---------|------------------|
-| 8 | [What is Protobuf?](./protobuf/what-is-protobuf.md) | Binary serialization, why not JSON, field numbers |
-| 9 | [Proto Schema](./protobuf/proto-schema.md) | `.proto` syntax, messages, enums, well-known types |
-| 10 | [Compile Workflow](./protobuf/compile-workflow.md) | `protoc`, generated files, `__init__.py` |
-| 11 | [Python Usage](./protobuf/python-usage.md) | Constructing, serializing, deserializing |
+| 8 | [What is Protobuf?](./protobuf/what-is-protobuf.md) | Binary serialization, JSON vs Protobuf, field numbers |
+| 9 | [Proto Schema](./protobuf/proto-schema.md) | `.proto` syntax, wire types, tag formula, schema evolution |
+| 10 | [Binary Encoding](./protobuf/binary-encoding.md) | Byte-by-byte teardown, varints, IEEE 754, tag decoding |
+| 11 | [Compile Workflow](./protobuf/compile-workflow.md) | `protoc` internals, file descriptor, generated code |
+| 12 | [Python Usage](./protobuf/python-usage.md) | Constructing, serializing, deserializing, introspection |
 
 ### Part 3 — Infrastructure
 | # | Chapter | What you'll learn |
 |---|---------|------------------|
-| 12 | [Redpanda](./infra/redpanda.md) | Ports, internal vs external, rpk CLI |
-| 13 | [Redpanda Console](./infra/redpanda-console.md) | Web UI, Protobuf decoding, what to look for |
-| 14 | [Python Packages](./infra/python-packages.md) | confluent-kafka, protobuf, librdkafka |
+| 13 | [Redpanda](./infra/redpanda.md) | Ports, internal vs external, rpk CLI |
+| 14 | [Redpanda Console](./infra/redpanda-console.md) | Web UI, Protobuf decoding, what to look for |
+| 15 | [Python Packages](./infra/python-packages.md) | confluent-kafka, protobuf, librdkafka |
 
 ---
 
