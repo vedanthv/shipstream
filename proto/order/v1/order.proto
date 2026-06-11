@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package order.v1;
+
+import "google/protobuf/timestamp.proto";
+
+message Order {
+  string id          = 1;
+  string customer_id = 2;
+  string item        = 3;
+  double amount      = 4;
+  OrderStatus status = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+enum OrderStatus {
+  ORDER_STATUS_UNSPECIFIED = 0;
+  ORDER_STATUS_CREATED     = 1;
+  ORDER_STATUS_PAID        = 2;
+  ORDER_STATUS_FULFILLED   = 3;
+  ORDER_STATUS_CANCELLED   = 4;
+}
