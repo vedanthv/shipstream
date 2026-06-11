@@ -495,4 +495,4 @@ For breaking changes, no deployment order helps — you need a v2 package.
 
 ---
 
-> ← [Previous: What is Protobuf?](./what-is-protobuf.md) | [Index](../README.md) | [Next: Binary Encoding →](./binary-encoding.md)
+> ← [Previous: What is Protobuf?](./what-is-protobuf.md) | [Index](../README.md) | [Next: The Schema Disaster (story) →](./schema-story.md)

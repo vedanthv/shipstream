@@ -8,9 +8,10 @@
 |---------|-------|------------------|
 | 8 | [What is Protobuf?](./what-is-protobuf.md) | Binary serialization, JSON vs Protobuf, field numbers, industry adoption |
 | 9 | [Proto Schema](./proto-schema.md) | `.proto` syntax, wire types, tag formula, field type table, schema evolution |
-| 10 | [Binary Encoding](./binary-encoding.md) | Byte-by-byte teardown of a real message, varints, IEEE 754, tag decoding |
-| 11 | [Compile Workflow](./compile-workflow.md) | `protoc` internals, file descriptor, generated code structure, `__init__.py` |
-| 12 | [Python Usage](./python-usage.md) | Constructing, serializing, deserializing, introspection, error handling |
+| 10 | [The Schema Disaster](./schema-story.md) | Story: field number change → silent corruption → Schema Registry saves the day |
+| 11 | [Binary Encoding](./binary-encoding.md) | Byte-by-byte teardown of a real message, varints, IEEE 754, tag decoding |
+| 12 | [Compile Workflow](./compile-workflow.md) | `protoc` internals, file descriptor, generated code structure, `__init__.py` |
+| 13 | [Python Usage](./python-usage.md) | Constructing, serializing, deserializing, introspection, error handling |
 
 ---
 

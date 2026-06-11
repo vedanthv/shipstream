@@ -327,4 +327,4 @@ This is fundamentally different from a fixed binary format like a C struct, wher
 
 ---
 
-> ← [Previous: Proto Schema](./proto-schema.md) | [Index](../README.md) | [Next: Compile Workflow →](./compile-workflow.md)
+> ← [Previous: The Schema Disaster](./schema-story.md) | [Index](../README.md) | [Next: Compile Workflow →](./compile-workflow.md)
