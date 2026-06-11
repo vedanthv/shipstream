@@ -1,0 +1,14 @@
+kafka:
+  brokers:
+    - redpanda:9092
+
+serde:
+  protobuf:
+    enabled: true
+    mappings:
+      - topicName: order.created
+        valueProtoType: order.v1.Order
+    fileSystem:
+      enabled: true
+      paths:
+        - /proto
