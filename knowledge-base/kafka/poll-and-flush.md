@@ -10,6 +10,52 @@ Both producers and consumers have a `poll()` method, but they do completely diff
 
 ---
 
+## The two queues inside the producer
+
+Before getting into `poll()` and `flush()`, you need to know that the producer maintains **two completely separate queues**. Mixing them up is the source of most confusion.
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  librdkafka internals (the C library under confluent-kafka)  │
+│                                                              │
+│  [message buffer]              [callback queue]              │
+│  msg_1                         cb_for_msg_1   ← ready        │
+│  msg_2                         cb_for_msg_2   ← ready        │
+│  msg_3          →send→         cb_for_msg_3   ← ready        │
+│  ...            ←ack←          ...                           │
+│                                                              │
+│  background thread             drained by your poll()        │
+│  drains this one                                             │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**Message buffer** — filled by `produce()`, drained by a background thread that sends batches to the broker. Has a size limit (100,000 messages by default). If it fills up, `produce()` blocks your thread until there's room.
+
+**Callback queue** — filled by the background thread *after* broker acks arrive, drained by your `poll()` calls. Has no size limit that affects `produce()`.
+
+They move in sequence for each message:
+
+```
+message leaves buffer → broker acks → callback enters callback queue
+```
+
+But they are independent. The background thread manages both sides of that arrow. Your `poll()` only touches the right side.
+
+---
+
+### The pizza restaurant analogy
+
+Think of it like a pizza restaurant:
+
+- **You** (your thread) walk up and place orders: *"one margherita, one pepperoni"* — this is `produce()`. You hand the slip to the kitchen and walk away immediately. You are not standing there waiting.
+- **The kitchen** (background thread) takes the slips, cooks the pizzas, sends them out for delivery, and waits for the delivery driver to confirm delivery.
+- **The confirmation slips** (callback queue) pile up on a shelf near the register as deliveries are confirmed.
+- **You checking the shelf** (calling `poll()`) is when you actually read those confirmations and act on them.
+
+The key insight: the kitchen keeps cooking and delivering whether or not you check the shelf. `poll()` doesn't trigger delivery — it just reads the results of deliveries that already happened.
+
+---
+
 ## Producer: how messages actually get sent
 
 When you call `producer.produce(...)`, **the message is not sent immediately**. It goes into an internal in-memory buffer first. A background thread picks it up and batches it for network efficiency before sending to the broker.
@@ -36,6 +82,18 @@ The delivery callback (your `delivery_report` function) is queued in a **callbac
 
 - `poll(0)` — non-blocking: process whatever callbacks are ready *right now*, then return immediately
 - `poll(1.0)` — wait up to 1 second for a callback to arrive, then return
+
+**Important:** `poll()` never talks to the broker. By the time you call `poll()`, the background thread has already sent the messages and received the acks. The callbacks are just sitting in the queue waiting for you to fire them. `poll()` is the trigger, not the network call.
+
+```
+background thread (always running, no poll() needed):
+  msg_1 → broker → ack → callback for msg_1 enters queue
+  msg_2 → broker → ack → callback for msg_2 enters queue
+  msg_3 → broker → ack → callback for msg_3 enters queue
+
+your thread:
+  poll(0) → sees 3 callbacks ready → fires all 3 → queue empty
+```
 
 ```python
 for i in range(100):
