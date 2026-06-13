@@ -6,7 +6,7 @@ from confluent_kafka import Consumer, KafkaError
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.protobuf import ProtobufDeserializer
 from confluent_kafka.serialization import SerializationContext, MessageField
-from generated.order.v1.order_pb2 import Order, OrderStatus
+from generated_proto_objects.order.v1.order_pb2 import Order, OrderStatus
 
 BROKER          = "localhost:19092"
 SCHEMA_REGISTRY = "http://localhost:18081"

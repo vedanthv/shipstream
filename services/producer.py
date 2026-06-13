@@ -9,7 +9,7 @@ from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.protobuf import ProtobufSerializer
 from confluent_kafka.serialization import SerializationContext, MessageField
 from google.protobuf.timestamp_pb2 import Timestamp
-from generated.order.v1.order_pb2 import Order, OrderStatus
+from generated_proto_objects.order.v1.order_pb2 import Order, OrderStatus
 
 BROKER          = "localhost:19092"
 SCHEMA_REGISTRY = "http://localhost:18081"
