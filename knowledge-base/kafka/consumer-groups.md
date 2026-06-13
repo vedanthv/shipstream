@@ -16,31 +16,36 @@ The group is identified by a string `group.id`. Kafka tracks the group's offset 
 
 ---
 
-## One consumer per partition — the fundamental rule
+## The partition assignment rule
 
-This is non-negotiable in Kafka. Within a consumer group, a partition can only be assigned to one consumer at a time.
+The rule is often stated as "one consumer per partition" but the direction matters:
 
-```mermaid
-flowchart TD
-    subgraph "Topic: order.created (3 partitions)"
-        P0["Partition 0"]
-        P1["Partition 1"]
-        P2["Partition 2"]
-    end
+> **A partition can be held by at most one consumer member at a time. A single consumer member can hold multiple partitions.**
 
-    subgraph "shipstream-consumer-group"
-        C1["Consumer 1\nshipping-consumer-1"]
-        C2["Consumer 2\nshipping-consumer-2"]
-        C3["Consumer 3\nshipping-consumer-3"]
-        C4["Consumer 4\n⚠️ IDLE — no partition to assign"]
-    end
+```
+3 partitions, 1 consumer → consumer holds all 3
+┌─────────────┐
+│  Consumer 1 │ ← partition 0
+│             │ ← partition 1
+│             │ ← partition 2
+└─────────────┘
 
-    P0 --> C1
-    P1 --> C2
-    P2 --> C3
+3 partitions, 3 consumers → 1 partition each (the ideal)
+┌──────────┐  ┌──────────┐  ┌──────────┐
+│Consumer 1│  │Consumer 2│  │Consumer 3│
+│  part. 0 │  │  part. 1 │  │  part. 2 │
+└──────────┘  └──────────┘  └──────────┘
+
+3 partitions, 4 consumers → 4th sits idle (no partition left)
+┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐
+│Consumer 1│  │Consumer 2│  │Consumer 3│  │Consumer 4│
+│  part. 0 │  │  part. 1 │  │  part. 2 │  │  (idle)  │
+└──────────┘  └──────────┘  └──────────┘  └──────────┘
 ```
 
-**Why?** Ordering. If two consumers could read the same partition simultaneously, there's no way to guarantee they process messages in sequence. One consumer per partition = strict ordering within that partition.
+**Why can't two consumers share one partition?** Ordering. If two consumers read the same partition simultaneously there is no way to guarantee messages are processed in sequence, and offset tracking becomes ambiguous — which consumer's commit wins? One consumer owns one partition exclusively = strict ordering within that partition, unambiguous offset progression.
+
+The idle consumer in the 4-consumer example is not wasted — it acts as a hot standby. If Consumer 1 dies, the broker triggers a rebalance and the idle consumer immediately picks up partition 0.
 
 ---
 
@@ -106,9 +111,32 @@ consumer = Consumer({
 })
 ```
 
-`group.id` — determines offset tracking and partition assignment.
+These two fields are often confused but serve completely different purposes:
 
-`client.id` — purely for visibility. Without it, every consumer shows as `rdkafka` in the Redpanda Console, making it impossible to see which instance owns which partition.
+**`group.id`** — the broker uses this for everything functional:
+- Partition assignment: all members with the same `group.id` split the partitions between them
+- Offset tracking: committed offsets are stored per group, per partition on the broker
+
+**`client.id`** — a human-readable label for this specific process. The broker uses it for nothing functional. It shows up in logs, Redpanda Console, and `rpk group describe` under the CLIENT-ID column so you can tell consumers apart.
+
+```
+group.id  = "shipstream-consumer-group"   → which team you're on
+client.id = "shipstream-consumer-3"       → your name tag within the team
+```
+
+The practical consequence:
+
+```
+Same group.id, different client.id
+  → broker treats them as one group, splits partitions between them
+  → offsets are shared — one member's commit advances the group pointer
+
+Different group.id, same client.id (unusual but valid)
+  → broker treats them as independent groups, each reads the full topic
+  → offsets are completely separate
+```
+
+**`group.id` is what matters for failover.** If a consumer crashes and a new process starts with the same `group.id` (even with a different `client.id`), the broker assigns it the same partitions and it picks up from the last committed offset. `client.id` plays no role in this.
 
 `auto.offset.reset` — what to do when the group has no committed offset yet:
 - `"earliest"` — read from the very beginning of the log
