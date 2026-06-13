@@ -14,15 +14,15 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x14order/v1/order.proto\x12\x08order.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x9d\x01\n\x05Order\x12\n\n\x02id\x18\x01 \x01(\t\x12\x13\n\x0b\x63ustomer_id\x18\x02 \x01(\t\x12\x0c\n\x04item\x18\x03 \x01(\t\x12\x0e\n\x06\x61mount\x18\x04 \x01(\x01\x12%\n\x06status\x18\x05 \x01(\x0e\x32\x15.order.v1.OrderStatus\x12.\n\ncreated_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp*\x94\x01\n\x0bOrderStatus\x12\x1c\n\x18ORDER_STATUS_UNSPECIFIED\x10\x00\x12\x18\n\x14ORDER_STATUS_CREATED\x10\x01\x12\x15\n\x11ORDER_STATUS_PAID\x10\x02\x12\x1a\n\x16ORDER_STATUS_FULFILLED\x10\x03\x12\x1a\n\x16ORDER_STATUS_CANCELLED\x10\x04\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x14order/v1/order.proto\x12\x08order.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xad\x01\n\x05Order\x12\n\n\x02id\x18\x01 \x01(\t\x12\x13\n\x0b\x63ustomer_id\x18\x02 \x01(\t\x12\x0c\n\x04item\x18\x03 \x01(\t\x12\x0e\n\x06\x61mount\x18\x04 \x01(\x01\x12%\n\x06status\x18\x05 \x01(\x0e\x32\x15.order.v1.OrderStatus\x12.\n\ncreated_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0e\n\x06region\x18\x07 \x01(\t*\x94\x01\n\x0bOrderStatus\x12\x1c\n\x18ORDER_STATUS_UNSPECIFIED\x10\x00\x12\x18\n\x14ORDER_STATUS_CREATED\x10\x01\x12\x15\n\x11ORDER_STATUS_PAID\x10\x02\x12\x1a\n\x16ORDER_STATUS_FULFILLED\x10\x03\x12\x1a\n\x16ORDER_STATUS_CANCELLED\x10\x04\x62\x06proto3')
 
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, globals())
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'order.v1.order_pb2', globals())
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
-  _ORDERSTATUS._serialized_start=228
-  _ORDERSTATUS._serialized_end=376
+  _ORDERSTATUS._serialized_start=244
+  _ORDERSTATUS._serialized_end=392
   _ORDER._serialized_start=68
-  _ORDER._serialized_end=225
+  _ORDER._serialized_end=241
 # @@protoc_insertion_point(module_scope)
