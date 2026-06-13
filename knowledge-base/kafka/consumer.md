@@ -144,4 +144,4 @@ finally:
 
 ---
 
-> ← [Previous: Producer](./producer.md) | [Index](../README.md) | [Next: Rebalancing →](./rebalancing.md)
+> ← [Previous: Producer](./producer.md) | [Index](../README.md) | [Next: poll() and flush() →](./poll-and-flush.md)

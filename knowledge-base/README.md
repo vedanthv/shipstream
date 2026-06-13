@@ -15,7 +15,8 @@ A self-contained reference for the event-driven order pipeline. Read it like a b
 | 4 | [Consumer Groups](./kafka/consumer-groups.md) | Group mechanics, one-per-partition rule, multiple groups |
 | 5 | [Producer](./kafka/producer.md) | Serialization, partition key, delivery guarantees |
 | 6 | [Consumer](./kafka/consumer.md) | Poll loop, deserialization, offset commits |
-| 7 | [Rebalancing](./kafka/rebalancing.md) | Partition redistribution, race conditions, stability |
+| 7 | [poll() and flush()](./kafka/poll-and-flush.md) | Producer vs consumer poll, flush before exit, heartbeat contract |
+| 8 | [Rebalancing](./kafka/rebalancing.md) | Partition redistribution, race conditions, stability |
 
 ### Part 2 — Protobuf
 | # | Chapter | What you'll learn |
@@ -43,6 +44,11 @@ A self-contained reference for the event-driven order pipeline. Read it like a b
 | 20 | [Python Integration](./schema-registry/python-integration.md) | `ProtobufSerializer`, `ProtobufDeserializer`, what changed vs Phase 1 |
 | 21 | [Schema Evolution](./schema-registry/schema-evolution.md) | Which schema consumers use after a change, safe vs breaking changes, deploy steps |
 | 22 | [Schema Caching](./schema-registry/schema-caching.md) | How `SchemaRegistryClient` caches schemas, one fetch per ID, restart behaviour |
+
+### Simulations
+| # | Guide | What you'll do |
+|---|-------|---------------|
+| S1 | [Compatibility & Field Deletion](./simulations/compatibility-field-deletion.md) | Register schema v2 under BACKWARD mode; run v1 and v2 consumers side by side; observe lag, MEMBER-ID, and partition assignment live |
 
 ---
 

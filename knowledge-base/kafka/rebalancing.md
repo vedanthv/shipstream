@@ -1,6 +1,6 @@
 # Chapter 7 — Rebalancing
 
-> **You are here:** [Index](../README.md) → [Consumer](./consumer.md) → **Rebalancing**
+> **You are here:** [Index](../README.md) → [poll() and flush()](./poll-and-flush.md) → **Rebalancing**
 
 ---
 
@@ -132,4 +132,4 @@ Strategies to minimize rebalance impact:
 
 ---
 
-> ← [Previous: Consumer](./consumer.md) | [Index](../README.md) | [Next: What is Protobuf? →](../protobuf/what-is-protobuf.md)
+> ← [Previous: poll() and flush()](./poll-and-flush.md) | [Index](../README.md) | [Next: What is Protobuf? →](../protobuf/what-is-protobuf.md)
