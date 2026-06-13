@@ -12,7 +12,7 @@ The compatibility check answers: *can consumers or producers using the old schem
 
 ---
 
-## The four modes
+## The seven modes
 
 ### BACKWARD (default)
 
@@ -60,9 +60,48 @@ Both BACKWARD and FORWARD simultaneously. The new schema must be readable by old
 
 **When to use it:** When you can't control deployment order and need to guarantee zero breakage regardless.
 
+### TRANSITIVE_BACKWARD
+
+Same as BACKWARD, but the new schema must be readable by consumers using **any** previous version, not just the immediately preceding one.
+
+**Example:** If versions 1, 2, and 3 exist and you register version 4, BACKWARD only checks v4 vs v3. TRANSITIVE_BACKWARD checks v4 vs v3, v4 vs v2, and v4 vs v1.
+
+Use this when you cannot guarantee that all consumers have upgraded to the latest schema before the next version is deployed.
+
+### TRANSITIVE_FORWARD
+
+Same as FORWARD, but old consumers on **any** previous schema version must be able to read messages from the new producer.
+
+**Example:** Registering version 4 checks v3 vs v4, v2 vs v4, and v1 vs v4 — not just the adjacent pair.
+
+### TRANSITIVE_FULL
+
+Every schema must be both BACKWARD and FORWARD compatible with **all** previously registered schemas, not just the previous version.
+
+This is the strictest mode. In practice it means every change must be additive (new optional field with a new field number) forever — you can never delete or repurpose a field number once it has been registered.
+
+---
+
 ### NONE
 
 No compatibility checks. Any schema is accepted. Useful during development but dangerous in production.
+
+---
+
+## Non-transitive vs transitive — when it matters
+
+With only two schema versions the distinction is irrelevant. It becomes critical once you have three or more:
+
+```
+Version 1:  id, item, amount
+Version 2:  id, item, amount, region      ← added field
+Version 3:  id, item, amount, region, sku ← added another field
+```
+
+- **BACKWARD** — only checks v3 vs v2. A consumer on v3 can read v2 messages, but nobody checks whether it can read v1 messages.
+- **TRANSITIVE_BACKWARD** — checks v3 vs v2 AND v3 vs v1. Guarantees any consumer on v3 can read the entire topic history.
+
+If consumers can fall arbitrarily far behind (e.g., a batch job that runs weekly), use the transitive variant.
 
 ---
 
@@ -73,10 +112,12 @@ For Protobuf, the only change that satisfies **both** BACKWARD and FORWARD (i.e.
 | Change | BACKWARD | FORWARD |
 |--------|----------|---------|
 | Add optional field | ✅ | ✅ |
-| Delete field | ✅ | ❌ |
+| Delete field | ✅ | ✅ |
 | Change field number | ❌ | ❌ |
 | Change field type | ❌ | ❌ |
 | Rename field | ✅* | ✅* |
+
+Deleting a field is safe in both directions in Protobuf: old data containing the deleted field's bytes is treated as an unknown field and silently ignored; new data missing the field produces the Protobuf default value (empty string, 0, false). The wire format never breaks.
 
 *Renaming is safe in Protobuf because the wire format uses field numbers, not names. The new `_pb2.py` uses a different Python attribute name, but the bytes are identical.
 
@@ -186,11 +227,11 @@ Everything else fails one or both checks:
 | Change | BACKWARD | FORWARD | FULL |
 |--------|----------|---------|------|
 | Add optional field (new number) | ✅ | ✅ | ✅ |
-| Delete existing field | ✅ | ✅* | ✅* |
+| Delete existing field | ✅ | ✅ | ✅ |
 | Change field type | ❌ | ❌ | ❌ |
 | Change/reuse field number | ❌ | ❌ | ❌ |
 
-*Deleting a field technically passes both wire-format checks in Protobuf — missing fields default, unknown fields are ignored. But your application code loses access to that data. The registry doesn't know about application-level semantics.
+Deleting a field passes all wire-format checks — old bytes for that field are ignored as unknown; absence of the field produces a Protobuf default. Note that application code loses access to the data, but that is a product decision, not a compatibility violation the registry can enforce.
 
 ---
 
@@ -207,9 +248,12 @@ Fine for local development. Never use in production.
 | Mode | Protects against | Use when |
 |------|-----------------|----------|
 | `NONE` | Nothing | Local dev / learning |
-| `BACKWARD` | New consumer can't read old messages | You always deploy consumers before producers |
-| `FORWARD` | Old consumer can't read new messages | You always deploy producers before consumers |
-| `FULL` | Both | Production — can't control deploy order |
+| `BACKWARD` | New consumer can't read the previous version's messages | Deploy consumers before producers; only care about the last schema version |
+| `TRANSITIVE_BACKWARD` | New consumer can't read any historical messages | Consumers may lag far behind; need to read the full topic history |
+| `FORWARD` | Old consumer can't read the new version's messages | Deploy producers before consumers; only care about the last schema version |
+| `TRANSITIVE_FORWARD` | Any old consumer can't read new messages | Multiple old consumer versions still running simultaneously |
+| `FULL` | Both directions, adjacent versions only | Production when deploy order is uncontrolled |
+| `TRANSITIVE_FULL` | Both directions, all historical versions | Strictest — guarantees the entire version history is mutually compatible |
 
 ---
 
