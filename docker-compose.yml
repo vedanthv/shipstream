@@ -20,6 +20,8 @@ services:
       - "19092:19092"   # Kafka API (external)
       - "18081:18081"   # Schema Registry (external)
       - "18082:18082"   # Pandaproxy (external)
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
     healthcheck:
       test: ["CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.+true' || exit 1"]
       interval: 5s
@@ -39,3 +41,6 @@ services:
     volumes:
       - ./console-config.yml:/etc/console/config.yml
       - ./proto:/proto
+
+volumes:
+  redpanda-data:
