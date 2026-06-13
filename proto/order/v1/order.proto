@@ -11,6 +11,7 @@ message Order {
   double amount      = 4;
   OrderStatus status = 5;
   google.protobuf.Timestamp created_at = 6;
+  string region = 7;
 }
 
 enum OrderStatus {
