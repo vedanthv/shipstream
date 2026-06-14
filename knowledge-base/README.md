@@ -45,10 +45,21 @@ A self-contained reference for the event-driven order pipeline. Read it like a b
 | 21 | [Schema Evolution](./schema-registry/schema-evolution.md) | Which schema consumers use after a change, safe vs breaking changes, deploy steps |
 | 22 | [Schema Caching](./schema-registry/schema-caching.md) | How `SchemaRegistryClient` caches schemas, one fetch per ID, restart behaviour |
 
+### Part 5 — Broker Internals (Phase 3)
+| # | Chapter | What you'll learn |
+|---|---------|------------------|
+| 23 | [Brokers and Clusters](./kafka/brokers-and-clusters.md) | What a broker is, clustering, broker.id, listeners vs advertised.listeners, ISR |
+| 24 | [Topic Defaults](./kafka/topic-defaults.md) | log.dirs, recovery threads, auto.create.topics.enable, num.partitions |
+| 25 | [Threading Models](./kafka/threading-models.md) | JVM thread pools vs Seastar shards, num.io.threads, async I/O, how poll() and flush() travel through broker threads |
+
 ### Simulations
 | # | Guide | What you'll do |
 |---|-------|---------------|
 | S1 | [Compatibility & Field Deletion](./simulations/compatibility-field-deletion.md) | Register schema v2 under BACKWARD mode; run v1 and v2 consumers side by side; observe lag, MEMBER-ID, and partition assignment live |
+| S2 | [Phase 3: Broker Internals](./simulations/phase3-guide.md#s2----autocreatetopicsenable-footgun) | Typo a topic name and watch payments vanish into a ghost topic; observe the difference with auto-create disabled |
+| S3 | [Phase 3: Broker Internals](./simulations/phase3-guide.md#s3----numpartitions-consumer-parallelism-ceiling) | Run 4 consumers against a 2-partition topic; see exactly which consumers are idle and why |
+| S4 | [Phase 3: Broker Internals](./simulations/phase3-guide.md#s4----logdirs-on-disk-partition-layout) | Inspect partition directories and segment files on disk; see how multi-disk striping would distribute them |
+| S5 | [Phase 3: Broker Internals](./simulations/phase3-guide.md#s5----crash-recovery-partition-count-vs-recovery-time) | Hard-kill the broker mid-write across three partition-count scenarios; measure recovery time and verify offset integrity |
 
 ---
 
