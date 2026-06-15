@@ -51,6 +51,7 @@ A self-contained reference for the event-driven order pipeline. Read it like a b
 | 23 | [Brokers and Clusters](./kafka/brokers-and-clusters.md) | What a broker is, clustering, broker.id, listeners vs advertised.listeners, ISR |
 | 24 | [Topic Defaults](./kafka/topic-defaults.md) | log.dirs, recovery threads, auto.create.topics.enable, num.partitions |
 | 25 | [Threading Models](./kafka/threading-models.md) | JVM thread pools vs Seastar shards, num.io.threads, async I/O, how poll() and flush() travel through broker threads |
+| 26 | [Threading Models II](./kafka/threading-models-ii.md) | More detailed deepdive into threading models |
 
 ### Part 6 — Log Retention & Storage (Phase 4)
 | # | Chapter | What you'll learn |
