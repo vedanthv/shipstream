@@ -6,6 +6,20 @@ The examples use a **payment events** pipeline (`payment.initiated`, `payment.ca
 
 ---
 
+## Topic-level config vs per-partition enforcement
+
+Every retention setting is **configured at the topic level**. You set `retention.ms`, `segment.bytes`, `cleanup.policy` on a topic and every partition in that topic inherits the same values. There is no way to give partition 0 a different retention window than partition 1 on the same topic.
+
+The phrase "per-partition" only describes **how the broker enforces** a setting — not where you configure it.
+
+- **`retention.ms`** — the cleaner checks each partition's segments independently, but the threshold is identical for all of them. Calling it "per-partition" just means the cleaner doesn't aggregate across partitions; it's not a meaningful distinction for capacity planning.
+
+- **`retention.bytes`** — also enforced per-partition, but here it *matters*: the cap applies independently to each partition, so it multiplies by partition count. A 3-partition topic with `retention.bytes=1 GiB` can hold **3 GiB total** — one GiB per partition. This is the only retention setting where understanding the per-partition enforcement has a direct capacity planning consequence.
+
+> All retention settings are topic-level config. `retention.ms` is enforced per-partition but the number doesn't change. `retention.bytes` is enforced per-partition and the number multiplies — that's the one worth internalising as "per-partition."
+
+---
+
 ## What lives on disk
 
 Before retention settings make sense, you need to know what Kafka actually stores.
