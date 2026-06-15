@@ -95,6 +95,26 @@ By controlling when the group offset is committed (before or after processing), 
 
 ---
 
+## What the Log End Offset actually represents
+
+The LEO is the broker's *claimed* position — it reflects messages that have been accepted into the log. But "in the log" does not mean "safely on disk."
+
+By default, Kafka writes to the **OS page cache** first and lets the OS flush to disk in the background. The offset advances as soon as the write lands in page cache, not when it hits disk.
+
+**The checkpoint is what confirms disk safety.** On a clean shutdown, the broker fsyncs everything and writes a checkpoint file per data directory: "I flushed up to offset X and the bytes are valid." On restart it trusts that receipt and recovers instantly.
+
+On a crash (`kill -9`), no checkpoint is written. The broker wakes up, sees an offset in its metadata, but doesn't know if the bytes at that position actually made it to disk intact. So it scans the segment files byte-by-byte, finds the last complete valid message frame, and truncates everything after it. The offset rewinds to match what's actually on disk.
+
+```
+Claimed LEO (from metadata): offset 1042
+Actual safe offset (after scan): offset 1038
+→ last 4 messages were in page cache, never flushed, truncated
+```
+
+This scan is what `num.recovery.threads.per.data.dir` parallelizes — more threads means more partition directories scanned simultaneously on restart.
+
+---
+
 ## Offsets in the Redpanda Console
 
 In the Console group view you see one row per partition:

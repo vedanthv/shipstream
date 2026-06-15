@@ -52,6 +52,11 @@ A self-contained reference for the event-driven order pipeline. Read it like a b
 | 24 | [Topic Defaults](./kafka/topic-defaults.md) | log.dirs, recovery threads, auto.create.topics.enable, num.partitions |
 | 25 | [Threading Models](./kafka/threading-models.md) | JVM thread pools vs Seastar shards, num.io.threads, async I/O, how poll() and flush() travel through broker threads |
 
+### Part 6 — Log Retention & Storage (Phase 4)
+| # | Chapter | What you'll learn |
+|---|---------|------------------|
+| 26 | [Log Retention & Storage](./kafka/log-retention.md) | Segments as the unit of deletion, segment rolling, time and size retention, message.max.bytes alignment, log start offset, tiered storage, cleanup.policy (delete / compact / compact+delete) |
+
 ### Simulations
 | # | Guide | What you'll do |
 |---|-------|---------------|
@@ -60,6 +65,9 @@ A self-contained reference for the event-driven order pipeline. Read it like a b
 | S3 | [Phase 3: Broker Internals](./simulations/phase3-guide.md#s3----numpartitions-consumer-parallelism-ceiling) | Run 4 consumers against a 2-partition topic; see exactly which consumers are idle and why |
 | S4 | [Phase 3: Broker Internals](./simulations/phase3-guide.md#s4----logdirs-on-disk-partition-layout) | Inspect partition directories and segment files on disk; see how multi-disk striping would distribute them |
 | S5 | [Phase 3: Broker Internals](./simulations/phase3-guide.md#s5----crash-recovery-partition-count-vs-recovery-time) | Hard-kill the broker mid-write across three partition-count scenarios; measure recovery time and verify offset integrity |
+| S6 | [Phase 4: Log Retention](./simulations/phase4-guide.md#s6----active-segment-blocks-retention) | Prove that the active segment blocks deletion even when messages are past the retention window |
+| S7 | [Phase 4: Log Retention](./simulations/phase4-guide.md#s7----logretentionbytes-per-partition-size-cap) | Route all traffic to one partition and watch only that partition get trimmed by the per-partition size cap |
+| S8 | [Phase 4: Log Retention](./simulations/phase4-guide.md#s8----log-start-offset-and-offset_out_of_range) | Let retention delete committed offsets; observe how earliest, latest, and error reset policies each behave |
 
 ---
 
