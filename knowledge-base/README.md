@@ -34,6 +34,7 @@ A self-contained reference for the event-driven order pipeline. Read it like a b
 | 14 | [Redpanda](./infra/redpanda.md) | Ports, internal vs external, rpk CLI |
 | 15 | [Redpanda Console](./infra/redpanda-console.md) | Web UI, Protobuf decoding, what to look for |
 | 16 | [Python Packages](./infra/python-packages.md) | confluent-kafka, protobuf, librdkafka |
+| 17 | [Docker Compose](./infra/docker-compose.md) | How `compose up` registers OS port rules, the full Python→Redpanda request journey, named volumes vs bind mounts, depends_on and healthchecks |
 
 ### Part 4 — Schema Registry
 | # | Chapter | What you'll learn |
@@ -93,13 +94,13 @@ for i in 1 2 3; do
 done
 
 # Check consumer group lag
-docker exec redpanda rpk group describe shipstream-consumer-group
+docker exec redpanda-1 rpk group describe shipstream-consumer-group
 
 # Inspect registered schemas
 curl http://localhost:18081/subjects
 curl http://localhost:18081/subjects/order.created-value/versions/latest
 
 # Recreate topic with 3 partitions
-docker exec redpanda rpk topic delete order.created
-docker exec redpanda rpk topic create order.created --partitions 3
+docker exec redpanda-1 rpk topic delete order.created
+docker exec redpanda-1 rpk topic create order.created --partitions 3
 ```
