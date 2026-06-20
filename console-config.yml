@@ -1,11 +1,13 @@
 kafka:
   brokers:
-    - redpanda:9092
+    - redpanda-1:9092
+    - redpanda-2:9092
+    - redpanda-3:9092
 
 schemaRegistry:
   enabled: true
   urls:
-    - http://redpanda:8081
+    - http://redpanda-1:8081
 
 serde:
   protobuf:
