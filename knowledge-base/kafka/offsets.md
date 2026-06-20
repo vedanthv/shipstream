@@ -130,6 +130,39 @@ Three rows = three partitions. Each has its own independent bookmark. `LAG=0` ac
 
 ---
 
+## auto.offset.reset
+
+`auto.offset.reset` is a **consumer config** that tells Kafka what to do when a consumer has no committed offset for a partition. This happens in two cases:
+
+1. **New consumer group** — it has never committed any offset.
+2. **Expired offsets** — the group's last committed offset was deleted by log retention before the consumer caught up.
+
+In both cases there is no valid bookmark, so Kafka asks: *where should I start?*
+
+| Value | Behaviour |
+|-------|-----------|
+| `"earliest"` | Start from the oldest available message. You get everything Kafka still has. |
+| `"latest"` *(default)* | Start from the end. Only messages produced *after* the consumer starts are received. Everything before is silently skipped. |
+| `"error"` | Raise `OFFSET_OUT_OF_RANGE`. Consumer crashes rather than silently skipping data. |
+
+**This setting is ignored when a valid committed offset exists.** If the group already has an offset, Kafka always resumes from there — `auto.offset.reset` never fires.
+
+```
+# New group, 1000 messages already in the partition
+
+auto.offset.reset=earliest  →  reads from offset 0 (gets all 1000)
+auto.offset.reset=latest    →  reads from offset 1000 (skips all 1000)
+auto.offset.reset=error     →  raises OFFSET_OUT_OF_RANGE (no valid offset to start from)
+```
+
+**Which to use:**
+
+- `earliest` — safe default for correctness. New deploys pick up all data.
+- `latest` — common for real-time dashboards where historical data is irrelevant.
+- `error` — recommended for production payment/order pipelines. A silent skip is silent data loss; an exception forces a deliberate decision.
+
+---
+
 ## Resetting offsets
 
 ```bash

@@ -11,7 +11,7 @@ A self-contained reference for the event-driven order pipeline. Read it like a b
 |---|---------|------------------|
 | 1 | [What is Kafka?](./kafka/what-is-kafka.md) | Why brokers exist, Kafka vs direct calls, Redpanda |
 | 2 | [Topics & Partitions](./kafka/topics-and-partitions.md) | Append-only logs, partition keys, parallelism ceiling |
-| 3 | [Offsets](./kafka/offsets.md) | Message addressing, log end offset, group offset, lag |
+| 3 | [Offsets](./kafka/offsets.md) | Message addressing, log end offset, group offset, lag, auto.offset.reset |
 | 4 | [Consumer Groups](./kafka/consumer-groups.md) | Group mechanics, one-per-partition rule, multiple groups |
 | 5 | [Producer](./kafka/producer.md) | Serialization, partition key, delivery guarantees |
 | 6 | [Consumer](./kafka/consumer.md) | Poll loop, deserialization, offset commits |
@@ -21,43 +21,48 @@ A self-contained reference for the event-driven order pipeline. Read it like a b
 ### Part 2 — Protobuf
 | # | Chapter | What you'll learn |
 |---|---------|------------------|
-| 8 | [What is Protobuf?](./protobuf/what-is-protobuf.md) | Binary serialization, JSON vs Protobuf, field numbers |
-| 9 | [Proto Schema](./protobuf/proto-schema.md) | `.proto` syntax, wire types, tag formula, schema evolution |
-| 10 | [The Schema Disaster](./protobuf/schema-story.md) | Field number change → silent corruption → why Schema Registry exists |
-| 11 | [Binary Encoding](./protobuf/binary-encoding.md) | Byte-by-byte teardown, varints, IEEE 754, tag decoding |
-| 12 | [Compile Workflow](./protobuf/compile-workflow.md) | `protoc` internals, file descriptor, generated code |
-| 13 | [Python Usage](./protobuf/python-usage.md) | Constructing, serializing, deserializing, introspection |
+| 9 | [What is Protobuf?](./protobuf/what-is-protobuf.md) | Binary serialization, JSON vs Protobuf, field numbers |
+| 10 | [Proto Schema](./protobuf/proto-schema.md) | `.proto` syntax, wire types, tag formula, schema evolution |
+| 11 | [The Schema Disaster](./protobuf/schema-story.md) | Field number change → silent corruption → why Schema Registry exists |
+| 12 | [Binary Encoding](./protobuf/binary-encoding.md) | Byte-by-byte teardown, varints, IEEE 754, tag decoding |
+| 13 | [Compile Workflow](./protobuf/compile-workflow.md) | `protoc` internals, file descriptor, generated code |
+| 14 | [Python Usage](./protobuf/python-usage.md) | Constructing, serializing, deserializing, introspection |
 
 ### Part 3 — Infrastructure
 | # | Chapter | What you'll learn |
 |---|---------|------------------|
-| 14 | [Redpanda](./infra/redpanda.md) | Ports, internal vs external, rpk CLI |
-| 15 | [Redpanda Console](./infra/redpanda-console.md) | Web UI, Protobuf decoding, what to look for |
-| 16 | [Python Packages](./infra/python-packages.md) | confluent-kafka, protobuf, librdkafka |
-| 17 | [Docker Compose](./infra/docker-compose.md) | How `compose up` registers OS port rules, the full Python→Redpanda request journey, named volumes vs bind mounts, depends_on and healthchecks |
+| 15 | [Redpanda](./infra/redpanda.md) | Ports, internal vs external, rpk CLI |
+| 16 | [Redpanda Console](./infra/redpanda-console.md) | Web UI, Protobuf decoding, what to look for |
+| 17 | [Python Packages](./infra/python-packages.md) | confluent-kafka, protobuf, librdkafka |
+| 18 | [Docker Compose](./infra/docker-compose.md) | How `compose up` registers OS port rules, the full Python→Redpanda request journey, named volumes vs bind mounts, depends_on and healthchecks |
 
 ### Part 4 — Schema Registry
 | # | Chapter | What you'll learn |
 |---|---------|------------------|
-| 17 | [What is Schema Registry?](./schema-registry/what-is-schema-registry.md) | Why it exists, what problem it solves, Redpanda's built-in registry |
-| 18 | [Wire Format](./schema-registry/wire-format.md) | The 5-byte prefix, magic byte, schema ID, MessageIndex |
-| 19 | [Compatibility Modes](./schema-registry/compatibility-modes.md) | BACKWARD, FORWARD, FULL — rolling deploy examples, which mode to use |
-| 20 | [Python Integration](./schema-registry/python-integration.md) | `ProtobufSerializer`, `ProtobufDeserializer`, what changed vs Phase 1 |
-| 21 | [Schema Evolution](./schema-registry/schema-evolution.md) | Which schema consumers use after a change, safe vs breaking changes, deploy steps |
-| 22 | [Schema Caching](./schema-registry/schema-caching.md) | How `SchemaRegistryClient` caches schemas, one fetch per ID, restart behaviour |
+| 19 | [What is Schema Registry?](./schema-registry/what-is-schema-registry.md) | Why it exists, what problem it solves, Redpanda's built-in registry |
+| 20 | [Wire Format](./schema-registry/wire-format.md) | The 5-byte prefix, magic byte, schema ID, MessageIndex |
+| 21 | [Compatibility Modes](./schema-registry/compatibility-modes.md) | BACKWARD, FORWARD, FULL — rolling deploy examples, which mode to use |
+| 22 | [Python Integration](./schema-registry/python-integration.md) | `ProtobufSerializer`, `ProtobufDeserializer`, what changed vs Phase 1 |
+| 23 | [Schema Evolution](./schema-registry/schema-evolution.md) | Which schema consumers use after a change, safe vs breaking changes, deploy steps |
+| 24 | [Schema Caching](./schema-registry/schema-caching.md) | How `SchemaRegistryClient` caches schemas, one fetch per ID, restart behaviour |
 
 ### Part 5 — Broker Internals (Phase 3)
 | # | Chapter | What you'll learn |
 |---|---------|------------------|
-| 23 | [Brokers and Clusters](./kafka/brokers-and-clusters.md) | What a broker is, clustering, broker.id, listeners vs advertised.listeners, ISR |
-| 24 | [Topic Defaults](./kafka/topic-defaults.md) | log.dirs, recovery threads, auto.create.topics.enable, num.partitions |
-| 25 | [Threading Models](./kafka/threading-models.md) | JVM thread pools vs Seastar shards, num.io.threads, async I/O, how poll() and flush() travel through broker threads |
-| 26 | [Threading Models II](./kafka/threading-models-ii.md) | More detailed deepdive into threading models |
+| 25 | [Brokers and Clusters](./kafka/brokers-and-clusters.md) | What a broker is, clustering, broker.id, listeners vs advertised.listeners, ISR |
+| 26 | [Topic Defaults](./kafka/topic-defaults.md) | log.dirs, recovery threads, auto.create.topics.enable, num.partitions |
+| 27 | [Threading Models](./kafka/threading-models.md) | JVM thread pools vs Seastar shards, num.io.threads, async I/O, how poll() and flush() travel through broker threads |
+| 28 | [Threading Models II](./kafka/threading-models-ii.md) | More detailed deepdive into threading models |
 
 ### Part 6 — Log Retention & Storage (Phase 4)
 | # | Chapter | What you'll learn |
 |---|---------|------------------|
-| 26 | [Log Retention & Storage](./kafka/log-retention.md) | Segments as the unit of deletion, segment rolling, time and size retention, message.max.bytes alignment, log start offset, tiered storage, cleanup.policy (delete / compact / compact+delete) |
+| 29 | [Log Retention & Storage](./kafka/log-retention.md) | Segments as the unit of deletion, segment rolling, time and size retention, message.max.bytes alignment, log start offset, tiered storage, cleanup.policy (delete / compact / compact+delete) |
+
+### Part 7 — Replication & Fault Tolerance (Phase 5)
+| # | Chapter | What you'll learn |
+|---|---------|------------------|
+| 30 | [Replication & Fault Tolerance](./kafka/replication.md) | Leader-follower model, ISR mechanics, replication.factor, min.insync.replicas, leader election, unclean leader election, replica.fetch.max.bytes |
 
 ### Simulations
 | # | Guide | What you'll do |
@@ -70,6 +75,9 @@ A self-contained reference for the event-driven order pipeline. Read it like a b
 | S6 | [Phase 4: Log Retention](./simulations/phase4-guide.md#s6----active-segment-blocks-retention) | Prove that the active segment blocks deletion even when messages are past the retention window |
 | S7 | [Phase 4: Log Retention](./simulations/phase4-guide.md#s7----logretentionbytes-per-partition-size-cap) | Route all traffic to one partition and watch only that partition get trimmed by the per-partition size cap |
 | S8 | [Phase 4: Log Retention](./simulations/phase4-guide.md#s8----log-start-offset-and-offset_out_of_range) | Let retention delete committed offsets; observe how earliest, latest, and error reset policies each behave |
+| S9 | Phase 5: Replication *(coming)* | Create RF=3 topic, kill the leader mid-produce, observe controller elect a new leader and production continue |
+| S10 | Phase 5: Replication *(coming)* | Set min.insync.replicas=2, kill 2 of 3 brokers, watch acks=all block with NOT_ENOUGH_REPLICAS |
+| S11 | Phase 5: Replication *(coming)* | Unclean leader election — kill leader + one follower, restart stale follower, observe data loss |
 
 ---
 
