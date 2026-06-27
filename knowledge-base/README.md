@@ -63,6 +63,7 @@ A self-contained reference for the event-driven order pipeline. Read it like a b
 | # | Chapter | What you'll learn |
 |---|---------|------------------|
 | 30 | [Replication & Fault Tolerance](./kafka/replication.md) | Leader-follower model, ISR mechanics, replication.factor, min.insync.replicas, leader election, unclean leader election, replica.fetch.max.bytes |
+| 31 | [replica.fetch.max.bytes](./kafka/replica-fetch-max-bytes.md) | Why follower fetch size must match message.max.bytes, the four-way size chain, when mismatches silently break replication |
 
 ### Simulations
 | # | Guide | What you'll do |
